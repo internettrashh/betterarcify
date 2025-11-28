@@ -24,6 +24,9 @@
   "side_panel": {
     "default_path": "sidebar.html"
   },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
   "action": {},
   "background": {
     "service_worker": "background.js",

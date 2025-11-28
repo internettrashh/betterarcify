@@ -12,11 +12,13 @@ function getExtensionInputs() {
     options: resolve(process.cwd(), 'options.html'),
     onboarding: resolve(process.cwd(), 'onboarding.html'),
     'installation-onboarding': resolve(process.cwd(), 'installation-onboarding.html'),
+    newtab: resolve(process.cwd(), 'newtab.html'),
     background: resolve(process.cwd(), 'background.js'),
     'sidebar-script': resolve(process.cwd(), 'sidebar.js'),
     'options-script': resolve(process.cwd(), 'options.js'),
     'onboarding-script': resolve(process.cwd(), 'onboarding.js'),
     'installation-onboarding-script': resolve(process.cwd(), 'installation-onboarding.js'),
+    'newtab-script': resolve(process.cwd(), 'newtab.js'),
   };
 }
 
@@ -26,12 +28,13 @@ function getExtensionInputs() {
 function getExtensionOutput(isDev = false) {
   return {
     entryFileNames: (chunkInfo) => {
-      const mainScripts = ['background', 'sidebar-script', 'options-script', 'onboarding-script', 'installation-onboarding-script'];
+      const mainScripts = ['background', 'sidebar-script', 'options-script', 'onboarding-script', 'installation-onboarding-script', 'newtab-script'];
       if (mainScripts.includes(chunkInfo.name)) {
         if (chunkInfo.name === 'sidebar-script') return 'sidebar.js';
         if (chunkInfo.name === 'options-script') return 'options.js';
         if (chunkInfo.name === 'onboarding-script') return 'onboarding.js';
         if (chunkInfo.name === 'installation-onboarding-script') return 'installation-onboarding.js';
+        if (chunkInfo.name === 'newtab-script') return 'newtab.js';
         return `${chunkInfo.name}.js`;
       }
       return isDev ? '[name].js' : 'assets/[name]-[hash].js';

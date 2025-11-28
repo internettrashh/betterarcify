@@ -365,6 +365,61 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Navigation Bar Listeners
+    const backBtn = document.getElementById('backBtn');
+    const forwardBtn = document.getElementById('forwardBtn');
+    const reloadBtn = document.getElementById('reloadBtn');
+    const urlBar = document.getElementById('urlBar');
+
+    if (backBtn) backBtn.addEventListener('click', async () => {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab) chrome.tabs.goBack(tab.id);
+    });
+
+    if (forwardBtn) forwardBtn.addEventListener('click', async () => {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab) chrome.tabs.goForward(tab.id);
+    });
+
+    if (reloadBtn) reloadBtn.addEventListener('click', () => chrome.tabs.reload());
+
+    if (urlBar) {
+        urlBar.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                let url = urlBar.value;
+                if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('chrome://') && !url.startsWith('edge://') && !url.startsWith('about:')) {
+                    if (url.includes('.') && !url.includes(' ')) {
+                        url = 'https://' + url;
+                    } else {
+                        url = 'https://www.google.com/search?q=' + encodeURIComponent(url);
+                    }
+                }
+                chrome.tabs.update({ url: url });
+                urlBar.blur();
+            }
+        });
+        urlBar.addEventListener('focus', () => urlBar.select());
+    }
+
+    // Initial URL bar update
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs.length > 0) {
+            updateUrlBar(tabs[0]);
+        }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', async (e) => {
+        // Cmd+Backspace (Mac) or Ctrl+Backspace (Windows/Linux) to delete active space
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Backspace') {
+            e.preventDefault();
+            const activeSpace = spaces.find(s => s.id === activeSpaceId);
+            if (activeSpace && confirm(`Delete space "${activeSpace.name}" and close all its tabs?`)) {
+                await deleteSpace(activeSpaceId);
+            }
+        }
+    });
+
     // --- Space Switching with Trackpad Swipe ---
     let isSwiping = false;
     let swipeTimeout = null;
@@ -1242,7 +1297,10 @@ async function createSpaceFromInactive(spaceName, tabToMove) {
 
 function saveSpaces() {
     console.log('Saving spaces to storage...', spaces);
-    chrome.storage.local.set({ spaces }, () => {
+    chrome.storage.local.set({ 
+        spaces,
+        activeSpaceId 
+    }, () => {
         console.log('Spaces saved successfully');
     });
 }
@@ -2699,7 +2757,12 @@ function handleTabUpdate(tabId, changeInfo, tab) {
             if (changeInfo.status == 'complete' || changeInfo.status == 'loading') {
                 // Scroll to the newly created tab
                 scrollToTab(tabId, 100);
-            } 
+            }
+            
+            // Update URL bar if active tab updated
+            if (tab.active) {
+                updateUrlBar(tab);
+            }
         }
     });
 }
@@ -2924,6 +2987,11 @@ function handleTabActivated(activeInfo) {
         
         // Scroll to the activated tab's location
         scrollToTab(activeInfo.tabId, 0);
+
+        // Update URL bar
+        chrome.tabs.get(activeInfo.tabId, (tab) => {
+            updateUrlBar(tab);
+        });
     });
 }
 
@@ -3215,4 +3283,21 @@ function setupFolderContextMenu(folderElement, space, item = null) {
         };
         document.addEventListener('click', closeContextMenu);
     });
+}
+
+function updateUrlBar(tab) {
+    const urlBar = document.getElementById('urlBar');
+    if (urlBar && tab && tab.url) {
+        // Show placeholder for new tab pages
+        if (tab.url.startsWith('chrome://newtab') || 
+            tab.url.startsWith('edge://newtab') || 
+            tab.url.startsWith('chrome-search://') ||
+            tab.url === 'about:blank') {
+            urlBar.value = '';
+            urlBar.placeholder = 'Search here';
+        } else {
+            urlBar.value = tab.url;
+            urlBar.placeholder = 'Search or enter URL';
+        }
+    }
 }
