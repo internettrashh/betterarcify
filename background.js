@@ -153,6 +153,13 @@ async function injectSpotlightScript(spotlightTabMode) {
         // Get the active tab
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
         if (tab) {
+            // Check for restricted URLs where content scripts cannot run
+            if (isRestrictedUrl(tab.url)) {
+                console.log(`Restricted URL detected: ${tab.url}. Using fallback.`);
+                await fallbackToChromeTabs(spotlightTabMode);
+                return;
+            }
+
             // PRIMARY: Try to send activation message to dormant content script
             // This is 20-40x faster than script injection (50-100ms vs 1-2s)
             try {
@@ -212,6 +219,19 @@ async function injectSpotlightScript(spotlightTabMode) {
     }
 }
 
+// Helper to check for restricted URLs
+function isRestrictedUrl(url) {
+    if (!url) return false;
+    return url.startsWith('chrome://') || 
+           url.startsWith('chrome-extension://') || 
+           url.startsWith('edge://') || 
+           url.startsWith('brave://') || 
+           url.startsWith('opera://') || 
+           url.startsWith('about:') || 
+           url.startsWith('view-source:') ||
+           url.includes('chrome.google.com/webstore');
+}
+
 // Helper function for Chrome tab fallback when spotlight injection fails
 async function fallbackToChromeTabs(spotlightTabMode) {
     try {
@@ -220,12 +240,22 @@ async function fallbackToChromeTabs(spotlightTabMode) {
         
         console.log(`Falling back to Chrome tabs for mode: ${spotlightTabMode}`);
         
-        // TODO: Consider adding a toast/notification to inform users that current tab 
-        // URL hotkeys don't work on core Chrome pages (chrome://, extension pages, etc.)
-        // This would help users understand why we're opening a new tab instead.
-        // Could use chrome.notifications API or a subtle in-page notification.
+        // If mode is CURRENT_TAB, opening a new tab is confusing.
+        // Instead, try to open the side panel which works everywhere.
+        if (spotlightTabMode === SpotlightTabMode.CURRENT_TAB) {
+            console.log("Current Tab mode on restricted page: Opening Side Panel instead.");
+            try {
+                const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+                if (tab) {
+                    chrome.sidePanel.open({windowId: tab.windowId});
+                }
+            } catch (sidePanelError) {
+                console.error("Side panel fallback failed:", sidePanelError);
+            }
+            return;
+        }
 
-        // Always create new tab regardless of original mode
+        // For NEW_TAB mode, or if side panel fails, create a new tab
         // This ensures URL bar is always focused when spotlight fails
         // Chrome security model prevents extensions from focusing address bar directly
         await chrome.tabs.create({ url: 'chrome://newtab/', active: true });
@@ -233,16 +263,6 @@ async function fallbackToChromeTabs(spotlightTabMode) {
         
     } catch (chromeTabError) {
         console.error("Error with Chrome tab fallback:", chromeTabError);
-        // Final fallback: open side panel
-        try {
-            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-            if (tab) {
-                chrome.sidePanel.open({windowId: tab.windowId});
-                console.log("Opened side panel as final fallback");
-            }
-        } catch (sidePanelError) {
-            console.error("All fallbacks failed:", sidePanelError);
-        }
     }
 }
 
