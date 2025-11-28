@@ -97,36 +97,6 @@ export const BookmarkUtils = {
         }
     },
 
-    /**
-     * Find the Bookmarks Bar folder (Favorites)
-     * @returns {Promise<Object|null>} The Bookmarks Bar folder object
-     */
-    async findBookmarksBarFolder() {
-        try {
-            // Try standard ID '1' first (Chrome/Brave/Edge default)
-            try {
-                const folder = await chrome.bookmarks.get('1');
-                if (folder && Array.isArray(folder) && folder[0]) {
-                     return folder[0];
-                }
-            } catch (e) {
-                console.log('ID 1 not found, searching by name...');
-            }
-
-            // Fallback: Search by title
-            const rootChildren = await chrome.bookmarks.getChildren('0');
-            const bar = rootChildren.find(f => 
-                f.title.toLowerCase().includes('bar') || 
-                f.title.toLowerCase().includes('favorites') ||
-                f.title.toLowerCase().includes('favourites')
-            );
-            return bar || null;
-        } catch (error) {
-            console.error('[BookmarkUtils] Error finding Bookmarks Bar:', error);
-            return null;
-        }
-    },
-
 
     /**
      * Recursively get all bookmarks from a folder and its subfolders
